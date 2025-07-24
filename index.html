@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>プロセカ大会 スクロール抽選</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <style>
+    .roulette-container {
+      position: relative;
+      width: 100%;
+      height: 150px;
+      overflow: hidden;
+      border: 2px solid #333;
+      background: #fff;
+    }
+
+    .roulette-track {
+      display: flex;
+      flex-direction: column;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+    }
+
+    .roulette-item {
+      flex: 0 0 auto;
+      height: 50px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-bottom: 1px solid #ccc;
+      font-weight: bold;
+      font-size: 1.2rem;
+      background-color: #fef3c7;
+    }
+
+    .roulette-indicator {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background-color: red;
+      transform: translateY(-50%);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-4">
+  <div class="max-w-2xl mx-auto bg-white p-6 rounded-2xl shadow-md space-y-4">
+    <h1 class="text-2xl font-bold text-center">🎰 プロセカ大会 縦スクロール抽選 🎶</h1>
+
+    <label for="songList" class="block text-sm font-medium">曲リスト（1 行につき 1 曲）</label>
+    <textarea id="songList" class="w-full h-40 p-2 border rounded-md">
+Tell Your World
+ロキ
+ワールドイズマイン
+夜に駆ける
+シャルル
+ブリキノダンス
+ヒバナ
+KING
+ヴァンパイア
+ロウワー</textarea>
+
+    <button id="draw" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg transition">
+      抽選スタート！
+    </button>
+
+    <div class="roulette-container mt-6">
+      <div class="roulette-track" id="rouletteTrack"></div>
+      <div class="roulette-indicator"></div>
+    </div>
+
+    <p id="result" class="mt-4 text-xl font-semibold text-center"></p>
+  </div>
+
+  <script>
+    const track = document.getElementById("rouletteTrack");
+    const drawBtn = document.getElementById("draw");
+    const result = document.getElementById("result");
+
+    const clickSound = new Audio("click.mp3");
+    clickSound.volume = 0.3;
+
+    drawBtn.addEventListener("click", () => {
+      const songs = document.getElementById("songList").value
+        .split("\n")
+        .map((s) => s.trim())
+        .filter((s) => s);
+
+      if (songs.length < 2) {
+        result.textContent = "2曲以上入力してください";
+        return;
+      }
+
+      result.textContent = ""; // クリア
+      track.innerHTML = "";
+
+      // 縦スクロール用に複製（6周）
+      const repeated = Array(20).fill(songs).flat();
+      repeated.forEach((song, i) => {
+        const div = document.createElement("div");
+        div.className = "roulette-item";
+        div.textContent = song;
+        div.style.backgroundColor = i % 2 === 0 ? "#fde68a" : "#bfdbfe";
+        track.appendChild(div);
+      });
+
+      const itemHeight = 50;
+      const containerHeight = document.querySelector(".roulette-container").clientHeight;
+      const centerOffset = (containerHeight / 2) - itemHeight / 2;
+
+      const selectedIndex = Math.floor(Math.random() * songs.length);
+      const stopIndex = songs.length * 6 + selectedIndex;
+      const stopPosition = stopIndex * itemHeight - centerOffset;
+
+      const duration = 3000;
+      let startTime = null;
+      let lastPlayedIndex = -1;
+
+      function animateScroll(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easedProgress = 1 - Math.pow(1 - progress, 4);
+
+        const currentPos = stopPosition * easedProgress;
+        track.style.transform = `translateY(-${currentPos}px)`;
+
+        // カチカチ音をスクロールの位置に合わせて再生
+        const currentIndex = Math.floor(currentPos / itemHeight);
+        if (currentIndex !== lastPlayedIndex) {
+          clickSound.currentTime = 0;
+          clickSound.play();
+          lastPlayedIndex = currentIndex;
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(animateScroll);
+        } else {
+          result.textContent = `🎯 抽選結果：${songs[selectedIndex]}`;
+        }
+      }
+
+      requestAnimationFrame(animateScroll);
+    });
+  </script>
+</body>
+</html>
