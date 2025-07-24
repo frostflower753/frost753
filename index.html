@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>プロセカ大会 スクロール抽選</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 50px;
+      background: #f0f0f0;
+    }
+    .roulette-container {
+      position: relative;
+      width: 400px;
+      height: 200px;
+      margin: 0 auto 20px;
+      overflow: hidden;
+      border: 2px solid #333;
+      background: #fff;
+    }
+    .roulette-track {
+      display: flex;
+      flex-direction: column;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      will-change: transform;
+    }
+    .roulette-item {
+      flex: 0 0 auto;
+      height: 50px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-bottom: 1px solid #ccc;
+      font-weight: bold;
+      font-size: 1.2rem;
+      background-color: #fef3c7;
+    }
+    .roulette-indicator {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background-color: red;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      background-color: #3b82f6;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #2563eb;
+    }
+    #result {
+      font-size: 20px;
+      font-weight: 600;
+      margin-top: 20px;
+      min-height: 28px;
+    }
+    textarea {
+      width: 400px;
+      height: 120px;
+      padding: 8px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      resize: vertical;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎰 プロセカ大会 縦スクロール抽選 🎶</h1>
+
+  <textarea id="songList">Tell Your World
+ロキ
+ワールドイズマイン
+夜に駆ける
+シャルル
+ブリキノダンス
+ヒバナ
+KING
+ヴァンパイア
+ロウワー</textarea><br />
+
+  <button id="draw">抽選スタート！</button>
+
+  <div class="roulette-container">
+    <div class="roulette-track" id="rouletteTrack"></div>
+    <div class="roulette-indicator"></div>
+  </div>
+
+  <div id="result"></div>
+
+  <audio id="clickSound" src="click.mp3" preload="auto"></audio>
+  <audio id="decideSound" src="decide.mp3" preload="auto"></audio>
+
+  <script>
+    const track = document.getElementById("rouletteTrack");
+    const drawBtn = document.getElementById("draw");
+    const result = document.getElementById("result");
+    const clickSound = document.getElementById("clickSound");
+    const decideSound = document.getElementById("decideSound");
+
+    drawBtn.addEventListener("click", () => {
+      const songs = document.getElementById("songList").value
+        .split("\n")
+        .map(s => s.trim())
+        .filter(s => s);
+
+      if (songs.length < 2) {
+        result.textContent = "2曲以上入力してください";
+        return;
+      }
+
+      result.textContent = "";
+      track.innerHTML = "";
+
+      const itemHeight = 50;
+      const containerHeight = document.querySelector(".roulette-container").clientHeight;
+      const centerOffset = (containerHeight / 2) - itemHeight / 2;
+
+      const MIN_REPEAT = 6;
+      const repeatCount = Math.max(MIN_REPEAT, Math.ceil(20 / songs.length));
+      const repeated = Array(repeatCount).fill(songs).flat();
+
+      repeated.forEach((song, i) => {
+        const div = document.createElement("div");
+        div.className = "roulette-item";
+        div.textContent = song;
+        div.style.backgroundColor = i % 2 === 0 ? "#fde68a" : "#bfdbfe";
+        track.appendChild(div);
+      });
+
+      const selectedIndex = Math.floor(Math.random() * songs.length);
+
+      // 中央あたりで停止
+      const stopIndex = songs.length * Math.floor(repeatCount / 2) + selectedIndex;
+      const stopPosition = stopIndex * itemHeight - centerOffset;
+
+      const duration = 3000;
+      let startTime = null;
+      let lastPlayedIndex = -1;
+
+      function easeOutQuart(t) {
+        return 1 - Math.pow(1 - t, 4);
+      }
+
+      function animateScroll(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easedProgress = easeOutQuart(progress);
+
+        const currentPos = stopPosition * easedProgress;
+        track.style.transform = `translateY(-${currentPos}px)`;
+
+        const currentIndex = Math.floor(currentPos / itemHeight);
+        if (currentIndex !== lastPlayedIndex) {
+          clickSound.volume = 1.0;
+          clickSound.currentTime = 0;
+          clickSound.play().catch(() => {});
+          lastPlayedIndex = currentIndex;
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(animateScroll);
+        } else {
+          const displayedIndex = Math.round(currentPos / itemHeight);
+          const actualIndex = displayedIndex % songs.length;
+
+          decideSound.volume = 1.0;
+          decideSound.currentTime = 0;
+          decideSound.play().catch(() => {});
+
+          result.textContent = `🎯 抽選結果：${songs[actualIndex]}`;
+        }
+      }
+
+      requestAnimationFrame(animateScroll);
+    });
+  </script>
+</body>
+</html>
